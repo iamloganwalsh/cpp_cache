@@ -11,4 +11,6 @@ include_directories(include)
 add_executable(cpp_cache
     src/main.cpp
     src/datastore.cpp
+    src/commandparser.cpp
+    src/commanddispatcher.cpp
 )
