@@ -41,3 +41,47 @@ std::vector<std::string> DataStore::keys() const {
 
     return key_vector;
 }
+
+void DataStore::loadFromFile() {
+    std::ifstream file("storage/data.txt");
+
+    if (!file.is_open()) {
+        return; // new file
+    }
+
+    std::string line;
+
+    while (std::getline(file, line)) {
+        auto pos = line.find(':');
+
+        if (pos == std::string::npos) {
+            continue;
+        }
+
+        std::string key = line.substr(0, pos);
+        std::string value = line.substr(pos + 1);
+
+        data_store_[key] = value;
+    }
+}
+
+void DataStore::saveToFile() const {
+        std::ofstream file("storage/data.txt", std::ios::trunc);
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to write to storage/data.txt\n";
+        return;
+    }
+
+    for (const auto& [key, value] : data_store_) {
+        file << key << ":" << value << "\n";
+    }
+}
+
+DataStore::DataStore() {
+    loadFromFile();
+}
+
+DataStore::~DataStore() {
+    saveToFile();
+}

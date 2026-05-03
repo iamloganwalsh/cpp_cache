@@ -76,7 +76,11 @@ void CommandDispatcher::execute(const Command& cmd) {
             std::cout << k << "\n";
         }
     }
+    else if (cmd.name == "EXIT") {
+        return;
+    }
     else {
         std::cout << "ERROR: " + cmd.name + " NOT RECOGNISED AS A COMMAND\n";
+        return;
     }
 }

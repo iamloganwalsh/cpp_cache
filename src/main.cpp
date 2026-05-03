@@ -13,7 +13,7 @@ int main() {
     Command cmd;
     CommandDispatcher cmddis(ds);
 
-    while (true) {
+    while (cmd.name != "EXIT") {
         std::string line;
         std::cout << "> ";
         std::getline(std::cin, line);

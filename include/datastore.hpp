@@ -4,9 +4,13 @@
 #include <unordered_map>
 #include <optional>
 #include <vector>
+#include <fstream>
+#include <iostream>
 
 class DataStore {
 public:
+    DataStore();
+    ~DataStore();
     void set(const std::string& key, const std::string& value);
     std::optional<std::string> get(const std::string& key) const;
     bool del(const std::string& key);
@@ -15,4 +19,6 @@ public:
     std::vector<std::string> keys() const;
 private:
     std::unordered_map<std::string, std::string> data_store_;
+    void loadFromFile();
+    void saveToFile() const;
 };
