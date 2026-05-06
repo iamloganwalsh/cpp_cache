@@ -6,10 +6,11 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 class DataStore {
 public:
-    DataStore();
+    DataStore(const std::string& cache_name);
     ~DataStore();
     void set(const std::string& key, const std::string& value);
     std::optional<std::string> get(const std::string& key) const;
@@ -19,6 +20,12 @@ public:
     std::vector<std::string> keys() const;
 private:
     std::unordered_map<std::string, std::string> data_store_;
-    void loadFromFile();
-    void saveToFile() const;
+    std::ofstream log_file_;
+    std::string cache_name_;
+    bool is_replaying_ = false;
+
+    void loadFromSnapshot(); 
+    void updateSnapshot(); 
+    void loadFromLog();
+    void appendToLog(const std::string& entry); 
 };

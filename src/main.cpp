@@ -8,7 +8,11 @@
 #include <vector>
 
 int main() {
-    DataStore ds;
+    std::string cache_name;
+    std::cout << "Enter cache name: ";
+    std::getline(std::cin, cache_name);
+
+    DataStore ds(cache_name);
     CommandParser cmdpar;
     Command cmd;
     CommandDispatcher cmddis(ds);
@@ -16,7 +20,7 @@ int main() {
     while (cmd.name != "EXIT") {
         std::string line;
         std::cout << "> ";
-        std::getline(std::cin, line);
+        std::getline(std::cin, line);        
 
         cmd = cmdpar.parse(line);
         if (cmd.name.empty()) {

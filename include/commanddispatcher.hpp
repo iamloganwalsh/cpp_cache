@@ -1,3 +1,5 @@
+#pragma once
+
 #include "commandparser.hpp"
 #include "datastore.hpp"
 
