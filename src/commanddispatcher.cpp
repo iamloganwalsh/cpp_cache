@@ -79,6 +79,52 @@ void CommandDispatcher::execute(const Command& cmd) {
     else if (cmd.name == "EXIT") {
         return;
     }
+    else if (cmd.name == "HELP") {
+        data_store_.help();
+    }
+    else if (cmd.name == "SETEX") {
+        if (cmd.args.size() != 3) {
+            std::cout << "ERROR: SETEX requires 3 arguments (key value ttl_seconds)\n";
+            return;
+        }
+
+        try {
+            int ttl_seconds = std::stoi(cmd.args[2]);
+
+            if (ttl_seconds <= 0) {
+                std::cout << "ERROR: TTL must be greater than 0\n";
+                return;
+            }
+
+            data_store_.setex(
+                cmd.args[0],
+                cmd.args[1],
+                ttl_seconds
+            );
+        }
+        catch (const std::exception&) {
+            std::cout << "ERROR: TTL must be a valid integer. Current TTL may be too large.\n";
+        }
+    }
+    else if (cmd.name == "TTL") {
+        if (cmd.args.size() != 1) {
+            std::cout << "ERROR: TTL requires 1 argument (key)\n";
+            return;
+        }
+
+        int result = data_store_.ttl(cmd.args[0]);
+
+        if (result == -1) {
+            std::cout << "Key: " + cmd.args[0] + " not found or has expired.\n";
+            return;
+        }
+        else if (result == -2) {
+            std::cout << "Key: " + cmd.args[0] + " exists but has no TTL.\n";
+            return;
+        }
+
+        std::cout << "Key: " << cmd.args[0] << " TTL: " << result << "\n";
+    }
     else {
         std::cout << "ERROR: " + cmd.name + " NOT RECOGNISED AS A COMMAND\n";
         return;

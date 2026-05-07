@@ -2,23 +2,30 @@
 
 void DataStore::set(const std::string& key, const std::string& value) {
     data_store_[key] = value;
+
     if (!is_replaying_) {
         appendToLog("SET " + key + " " + value);
     }
 }
 
-std::optional<std::string> DataStore::get(const std::string& key) const {
-    auto iterator = data_store_.find(key);
+std::optional<std::string> DataStore::get(const std::string& key) {
+    isExpired(key);
 
-    if (iterator != data_store_.end()) {
-        return iterator->second;
+    auto it = data_store_.find(key);
+
+    if (it == data_store_.end()) {
+        return std::nullopt;
     }
 
-    return std::nullopt;
+    return it->second;
 }
 
 bool DataStore::del(const std::string& key) {
     bool erased = data_store_.erase(key) == 1;
+
+    if (erased) {
+        expiry_map_.erase(key);
+    }
 
     if (erased && !is_replaying_) {
         appendToLog("DEL " + key);
@@ -27,28 +34,144 @@ bool DataStore::del(const std::string& key) {
     return erased;
 }
 
-bool DataStore::exists(const std::string& key) const {
+bool DataStore::exists(const std::string& key) {
+    isExpired(key);
     return data_store_.find(key) != data_store_.end();
 }
 
-std::vector<std::tuple<std::string, std::string>> DataStore::data_dump() const {
-    std::vector<std::tuple<std::string, std::string>> data_collection;
+std::vector<std::tuple<std::string, std::string>> DataStore::data_dump() {
+    cleanupExpiredKeys();
+
+    std::vector<std::tuple<std::string, std::string>> out;
 
     for (const auto& [key, value] : data_store_) {
-        data_collection.push_back(std::make_tuple(key, value));
+        out.emplace_back(key, value);
     }
 
-    return data_collection;
+    return out;
 }
 
-std::vector<std::string> DataStore::keys() const {
-    std::vector<std::string> key_vector;
 
-    for (const auto& [key, value] : data_store_) {
-        key_vector.push_back(key);
+void DataStore::setex(const std::string& key, const std::string& value, int ttl_seconds) {
+    data_store_[key] = value;
+
+    expiry_map_[key] =
+        std::chrono::steady_clock::now() +
+        std::chrono::seconds(ttl_seconds);
+
+    if (!is_replaying_) {
+        appendToLog("SETEX " + key + " " + value + " " + std::to_string(ttl_seconds));
+    }
+}
+
+int DataStore::ttl(const std::string& key) {
+    if (isExpired(key)) {
+        return -1;
     }
 
-    return key_vector;
+    auto it = expiry_map_.find(key);
+    bool key_exists = exists(key);
+
+    if (it == expiry_map_.end() && key_exists) {
+        return -2;
+    }
+    else if (!key_exists) {
+        return -1;
+    }
+
+    auto remaining =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            it->second - std::chrono::steady_clock::now()
+        ).count();
+
+    return static_cast<int>(remaining);
+}
+
+std::vector<std::string> DataStore::keys() {
+    cleanupExpiredKeys();
+
+    std::vector<std::string> out;
+
+    for (const auto& [key, _] : data_store_) {
+        out.push_back(key);
+    }
+
+    return out;
+}
+
+void DataStore::help() {
+    std::cout << R"(
+
+    ================ CACHE COMMANDS ================
+
+    SET <key> <value>
+        Store a value under a key.
+
+    GET <key>
+        Retrieve the value for a key.
+
+    DEL <key>
+        Delete a key from the cache.
+
+    EXISTS <key>
+        Check whether a key exists.
+
+    KEYS
+        List all keys currently stored.
+
+    DUMP
+        Print all key-value pairs.
+
+    SETEX <key> <value> <ttl_seconds>
+        Store a value with an expiration time.
+        NOTE: TTL keys currently do not persist.
+
+    TTL <key>
+        Show remaining time-to-live for a key.
+
+    HELP
+        Display available commands.
+
+    EXIT
+        Save snapshot and exit the program.
+
+    ================================================
+
+    )";
+}
+
+bool DataStore::isExpired(const std::string& key) {
+    auto it = expiry_map_.find(key);
+
+    if (it == expiry_map_.end()) {
+        return false;
+    }
+
+    if (std::chrono::steady_clock::now() >= it->second) {
+        removeExpiredKey(key);
+        return true;
+    }
+
+    return false;
+}
+
+void DataStore::cleanupExpiredKeys() {
+    std::vector<std::string> to_remove;
+
+    for (const auto& [key, _] : expiry_map_) {
+        if (std::chrono::steady_clock::now() >= expiry_map_[key]) {
+            to_remove.push_back(key);
+        }
+    }
+
+    for (const auto& key : to_remove) {
+        removeExpiredKey(key);
+    }
+}
+
+void DataStore::removeExpiredKey(const std::string& key) {
+    data_store_.erase(key);
+    expiry_map_.erase(key);
 }
 
 void DataStore::loadFromSnapshot() {
@@ -79,6 +202,10 @@ void DataStore::updateSnapshot() {
     }
 
     for (const auto& [key, value] : data_store_) {
+        if (expiry_map_.find(key) != expiry_map_.end()) {
+            continue; // skip TTL keys
+        }
+
         file << key << ":" << value << "\n";
     }
 
@@ -111,6 +238,14 @@ void DataStore::loadFromLog() {
             std::string key;
             iss >> key;
             data_store_.erase(key);
+        }
+        else if (command == "SETEX") {
+            std::string key, value;
+            int ttl_seconds;
+
+            iss >> key >> value >> ttl_seconds;
+
+            setex(key, value, ttl_seconds);
         }
     }
 
