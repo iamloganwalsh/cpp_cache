@@ -126,7 +126,8 @@ void CommandDispatcher::execute(const Command& cmd) {
         std::cout << "Key: " << cmd.args[0] << " TTL: " << result << "\n";
     }
     else {
-        std::cout << "ERROR: " + cmd.name + " NOT RECOGNISED AS A COMMAND\n";
+        std::cout << "ERROR: " + cmd.name + " NOT RECOGNISED AS A COMMAND.\n";
+        std::cout << "Run 'HELP' to see a list of available commands.\n";
         return;
     }
 }
